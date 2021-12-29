@@ -3,7 +3,7 @@ A plugin for [Lönn](https://github.com/CelestialCartographers/Loenn) adding eas
 
 ## WARNING
 
-Scripts are not sandboxed in any way, shape or form. Scripts included with the mod are safe, but if you receive a script form someone, make sure that you understand what the script does before running it!
+Scripts are not sandboxed in any way, shape or form. Scripts included with the mod are safe, but if you receive a script from someone, make sure that you understand what the script does before running it!
 
 ## Features
 * Most scripts can be reverted using CTRL+Z
