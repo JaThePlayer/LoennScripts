@@ -21,7 +21,7 @@ local function doLayer(layer, args)
     end
 end
 
-script.run = function(room, args)
+function script.run(room, args)
     doLayer(room.decalsFg, args)
     doLayer(room.decalsBg, args)
 end
