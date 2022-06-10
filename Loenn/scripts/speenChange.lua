@@ -2,11 +2,11 @@ local script = {
     name = "speenChange",
     displayName = "Change Spinners",
     parameters = {
-        dusty = false,
+        dust = false,
         color = "Blue",
     },
     fieldOrder = {
-        "color", "dusty"
+        "color", "dust"
     },
     fieldInformation = {
         color = {
@@ -18,19 +18,20 @@ local script = {
     },
     tooltip = "Changes the settings of all vanilla spinners",
     tooltips = {
-        dusty = "Whether the spinners should be dust bunnies",
+        dust = "Whether the spinners should be dust bunnies",
         color = "The color of spinners",
     },
 }
 
 function script.run(room, args)
     local color = args.color
-    local dusty = args.dusty
+    local dust = args.dust
 
     for _, entity in ipairs(room.entities) do
         if entity._name == "spinner" then
             entity.color = color
-            entity.dusty = dusty
+            entity.dust = dust
+            entity.dusty = nil
         end
     end
 end

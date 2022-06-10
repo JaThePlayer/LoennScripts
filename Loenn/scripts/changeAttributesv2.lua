@@ -1,0 +1,113 @@
+local entities = require("entities")
+local utils = require("utils")
+
+local script = {
+    name = "changeAttrs",
+    displayName = "Change Attributes",
+    tooltip = "Changes attributes in all entities/triggers of a specified type",
+    tooltips = {
+        type = "The SID of entities that will be impacted by this script",
+        replaceWith = "The SID that affected entities will be turned into. Leave blank to not change entity type",
+        allowPreserving = "If enabled, extra settings will be added to allow to leave some properties untouched on affected entities.\nUseful when only changing one property of entities in bulk."
+    },
+    parameters = {
+        type = "",
+        replaceWith = "",
+        allowPreserving = false,
+    },
+    fieldInformation = {
+        type = {
+            options = (function ()
+                local options = {}
+                for name, _ in ipairs(entities.registeredEntities) do
+                    table.insert(options, name)
+                end
+
+                return options
+            end)(),
+            editable = true
+        }
+    },
+}
+
+local function getChangePropName(propName)
+    return "replace_" .. propName
+end
+
+local function getPlacementData(args, handler)
+    local all = utils.callIfFunction(handler.placements)
+    local _data = (all.default or all[1] or all).data
+    local data =  utils.deepcopy(_data)
+
+    data.x = nil
+    data.y = nil
+    data.width = nil
+    data.height = nil
+
+    if args.allowPreserving then
+        for key, value in pairs(_data) do
+            data[getChangePropName(key)] = false
+        end
+    end
+
+
+    return data
+end
+
+local function getFieldOrder(args, handler)
+    local placementData = getPlacementData({allowPreserving = false}, handler)
+    local order = {}
+
+    for key, value in pairs(placementData) do
+        table.insert(order, key)
+        if args.allowPreserving then
+            table.insert(order, getChangePropName(key))
+        end
+    end
+
+    return order
+end
+
+local function getReplaceScriptRunFunction(entityName, replaceWith, handler)
+    return function (room, args)
+        for _, entity in ipairs(room.entities) do
+            if entity._name == entityName then
+                entity._name = replaceWith
+
+
+                for propName, _ in pairs(getPlacementData({allowPreserving = false}, handler)) do
+                    if args[getChangePropName(propName)] ~= false then
+                        entity[propName] = args[propName]
+                    end
+                end
+            end
+        end
+    end
+end
+
+function script.prerun(args)
+    local entityName = args.type
+    local replaceWith = args.replaceWith
+    if replaceWith == "" then
+        replaceWith = entityName
+    end
+
+    local entityHandler = entities.registeredEntities[replaceWith]
+
+    local placementData = getPlacementData(args, entityHandler)
+    local fieldOrder = getFieldOrder(args, entityHandler)
+
+    local changeHandler = {
+        displayName = string.format("Change all %s", entityName),
+        parameters = placementData,
+        fieldOrder = fieldOrder,
+        fieldInformation = entityHandler.fieldInformation,
+        run = getReplaceScriptRunFunction(entityName, replaceWith, entityHandler),
+    }
+
+    script.scriptsTool.useScript(changeHandler)
+end
+
+
+
+return script

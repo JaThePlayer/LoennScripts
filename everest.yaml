@@ -1,5 +1,5 @@
 - Name: LoennScripts
-  Version: 1.0.1
+  Version: 1.0.2
   Dependencies:
     - Name: Everest
       Version: 1.808.0
