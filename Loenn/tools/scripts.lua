@@ -14,6 +14,7 @@ local notifications = require("ui.notification")
 local viewportHandler = require("viewport_handler")
 local drawing = require("utils.drawing")
 local colors = require("consts.colors")
+local v = require("utils.version_parser")
 
 local tool = {}
 
@@ -184,6 +185,15 @@ local function finalizeScript(handler, name, source, mod)
     handler.scriptsTool = tool
     handler.__mod = mod
 
+    if handler.minimumVersion then
+        local modInfo = modHandler.findLoadedMod("LoennScripts")
+
+        if v(modInfo.Version) < v(handler.minimumVersion) then
+            notifications.notify(string.format("Script %s [%s] requires a more recent version of Loenn Scripts! (%s)", handler.displayName or name, mod, handler.minimumVersion), 10)
+            return name
+        end
+    end
+
     if configs.debug.logPluginLoading then
         logging.info("Loaded script '" .. name ..  "' [" .. mod .. "] " .. " from: " .. source)
     end
@@ -204,7 +214,6 @@ local function loadScript(filename)
     local pathNoExt = utils.stripExtension(filename)
     local filenameNoExt = utils.filename(pathNoExt, "/")
 
-    --print(filename)
     local mod = getModFromRelativePath(filename)
 
     local handler = utils.rerequire(pathNoExt)
