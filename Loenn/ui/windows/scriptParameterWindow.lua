@@ -117,7 +117,7 @@ local function removeWindow(window)
     window:removeSelf()
 end
 
-function contextWindow.createContextMenu(scriptHandler, callbackOnAccept)
+function contextWindow.createContextMenu(scriptHandler, callbackOnAccept, contextTable, callbackOnClose)
     local window
     local windowX = windowPreviousX
     local windowY = windowPreviousY
@@ -135,7 +135,7 @@ function contextWindow.createContextMenu(scriptHandler, callbackOnAccept)
             formMustBeValid = true,
             callback = function(formFields)
                 local formData = form.getFormData(formFields)
-                callbackOnAccept(scriptHandler, formData)
+                callbackOnAccept(scriptHandler, formData, contextTable)
 
                 -- make sure that parameter values persist between script usages
                 for k,v in pairs(formData) do
@@ -146,6 +146,7 @@ function contextWindow.createContextMenu(scriptHandler, callbackOnAccept)
         {
             text = tostring(language.ui.room_window.close_window),
             callback = function(formFields)
+                callbackOnClose()
                 removeWindow(window)
             end
         }

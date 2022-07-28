@@ -20,7 +20,7 @@ local script = {
 }
 
 -- Making any arbitrary script ctrl+z compliant could be impossible
-function script.prerun(args)
+function script.prerun(args, layer, ctx)
     local file = io.open(args.from)
     local l = file:read("*a")
     file:close()
@@ -42,7 +42,7 @@ function script.prerun(args)
         args.__handler.displayName = filename
     end
 
-    script.scriptsTool.useScript(args.__handler)
+    script.scriptsTool.useScript(args.__handler, ctx)
 end
 
 return script

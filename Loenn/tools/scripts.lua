@@ -11,6 +11,9 @@ local logging = require("logging")
 local scriptParameterWindow = require("mods").requireFromPlugin("ui.windows.scriptParameterWindow")
 local scriptsLibrary = require("mods").requireFromPlugin("library.scriptsLibrary")
 local notifications = require("ui.notification")
+local viewportHandler = require("viewport_handler")
+local drawing = require("utils.drawing")
+local colors = require("consts.colors")
 
 local tool = {}
 
@@ -22,6 +25,20 @@ tool.layer = "Current Room"
 tool.validLayers = {
     "Current Room",
     "All Rooms",
+}
+
+-- the positions of all currently active scripts (aka those with the property window open), used for rendering previews
+---x:number, y:number color:table[3]
+local activeScriptPositions = {}
+
+local scriptLocationPreviewColors = {
+    {1, 0, 0},
+    {0, 1, 0},
+    {0, 0, 1},
+    {1, 1, 0},
+    {1, 0, 1},
+    {0, 1, 1},
+    {1, 1, 1},
 }
 
 function tool.reset(load)
@@ -52,11 +69,19 @@ local function getTargetRooms()
     end
 end
 
-function tool.execScript(script, args)
+function tool.execScript(script, args, ctx)
     local snapshots = {}
 
+    ctx = ctx or { }
+
+    ctx.mouseX = ctx.mouseX or 0
+    ctx.mouseY = ctx.mouseY or 0
+
     if script.prerun then
-        local prerunSnapshot = script.prerun(args, tool.layer)
+        local room = state.getSelectedRoom()
+        ctx.mouseRoomX, ctx.mouseRoomY = ctx.mouseMapX - room.x, ctx.mouseMapY - room.y
+
+        local prerunSnapshot = script.prerun(args, tool.layer, ctx)
         if prerunSnapshot then
             table.insert(snapshots, prerunSnapshot)
         end
@@ -64,8 +89,10 @@ function tool.execScript(script, args)
 
     if script.run then
         for _, room in ipairs(getTargetRooms()) do
+            ctx.mouseRoomX, ctx.mouseRoomY = ctx.mouseMapX - room.x, ctx.mouseMapY - room.y
+
             local before = utils.deepcopy(room)
-            script.run(room, args)
+            script.run(room, args, ctx)
             local after = utils.deepcopy(room)
 
             local snapshot = snapshotUtils.roomSnapshot(room, "script_" .. (script.name or "unkScript") .. "_" .. room.name, before, after)
@@ -78,8 +105,8 @@ function tool.execScript(script, args)
     history.addSnapshot(snapshotUtils.multiSnapshot("script_multi_" .. (script.name or "unkScript"), snapshots))
 end
 
-function tool.safeExecScript(script, args)
-    local success, message = pcall(tool.execScript, script, args)
+function tool.safeExecScript(script, args, contextTable)
+    local success, message = pcall(tool.execScript, script, args, contextTable)
     if not success then
         logging.warning(string.format("Failed to run script!"))
         logging.warning(debug.traceback(message))
@@ -87,7 +114,17 @@ function tool.safeExecScript(script, args)
     end
 end
 
-function tool.useScript(script)
+local function indexofPos(table, pos)
+    for i, value in ipairs(table) do
+        if pos.x == value.x and pos.y == value.y then
+            return i
+        end
+    end
+
+    return -1
+end
+
+function tool.useScript(script, contextTable)
     if type(script) == "string" then
         script = tool.scripts[script]
     end
@@ -95,9 +132,18 @@ function tool.useScript(script)
     if not script then return end
 
     if script.parameters then
-        scriptParameterWindow.createContextMenu(script, tool.safeExecScript)
+        local storedPos = {
+            x = contextTable.mouseMapX or 0,
+            y = contextTable.mouseMapY or 0,
+            color = scriptLocationPreviewColors[((#activeScriptPositions) % (#scriptLocationPreviewColors)) + 1]
+        }
+
+        table.insert(activeScriptPositions, storedPos)
+        scriptParameterWindow.createContextMenu(script, tool.safeExecScript, contextTable, function()
+            table.remove(activeScriptPositions, indexofPos(activeScriptPositions, storedPos))
+        end)
     else
-        tool.safeExecScript(script, {})
+        tool.safeExecScript(script, {}, contextTable or {})
     end
 end
 
@@ -119,7 +165,14 @@ function tool.mouseclicked(x, y, button, istouch, pressed)
     local actionButton = configs.editor.toolActionButton
 
     if button == actionButton then
-        tool.useScript(tool.currentScript)
+        local mx, my = viewportHandler.getMapCoordinates(x, y or 0)
+
+        tool.useScript(tool.currentScript, {
+            mouseX = x,
+            mouseY = y,
+            mouseMapX = mx,
+            mouseMapY = my,
+        })
     end
 end
 
@@ -183,6 +236,35 @@ function tool.load()
             handler.displayName = key
             finalizeScript(handler, key, value, "Custom")
         end
+    end
+end
+
+local function drawPreviewRect(px, py)
+    love.graphics.rectangle("line", px - 2.5, py - 2.5, 5, 5)
+    love.graphics.rectangle("line", px, py, .1, .1)
+end
+
+function tool.draw()
+    local room = state.getSelectedRoom()
+
+    if room then
+        local px, py = viewportHandler.getRoomCoordindates(room)
+
+        drawing.callKeepOriginalColor(function()
+            -- draw preview for the currently held script
+            viewportHandler.drawRelativeTo(room.x, room.y, function()
+                love.graphics.setColor(colors.brushColor)
+                drawPreviewRect(px, py)
+            end)
+
+            -- draw previews for any active scripts
+            viewportHandler.drawRelativeTo(0, 0, function()
+                for i, pos in ipairs(activeScriptPositions) do
+                    love.graphics.setColor(pos.color)
+                    drawPreviewRect(pos.x, pos.y)
+                end
+            end)
+        end)
     end
 end
 
