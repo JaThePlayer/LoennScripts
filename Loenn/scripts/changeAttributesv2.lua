@@ -85,7 +85,7 @@ local function getReplaceScriptRunFunction(entityName, replaceWith, handler)
     end
 end
 
-function script.prerun(args)
+function script.prerun(args, layer, ctx)
     local entityName = args.type
     local replaceWith = args.replaceWith
     if replaceWith == "" then
@@ -105,7 +105,7 @@ function script.prerun(args)
         run = getReplaceScriptRunFunction(entityName, replaceWith, entityHandler),
     }
 
-    script.scriptsTool.useScript(changeHandler)
+    script.scriptsTool.useScript(changeHandler, ctx)
 end
 
 
