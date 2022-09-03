@@ -1,6 +1,7 @@
 local mods = require("mods")
 local config = require("utils.config")
 local utils = require("utils")
+local viewportHandler = require("viewport_handler")
 
 local scriptsLibrary = {}
 
@@ -40,6 +41,16 @@ end
 function scriptsLibrary.filename(filepath, humanize)
     local name = utils.filename(utils.stripExtension(filepath):gsub("\\", "/"), "/")
     return humanize and utils.humanizeVariableName(name) or name
+end
+
+---A wrapper over viewportHandler.getRoomCoordinates that uses the mispelled func if on an old version of lonn
+---@param room table
+---@param x number|nil
+---@param y number|nil
+---@return number roomX, number roomY
+function scriptsLibrary.safeGetRoomCoordinates(room, x, y)
+    local f = viewportHandler.getRoomCoordinates or viewportHandler.getRoomCoordindates
+    return f(room, x, y)
 end
 
 return scriptsLibrary

@@ -257,7 +257,7 @@ function tool.draw()
     local room = state.getSelectedRoom()
 
     if room then
-        local px, py = viewportHandler.getRoomCoordindates(room)
+        local px, py = scriptsLibrary.safeGetRoomCoordinates(room)
 
         drawing.callKeepOriginalColor(function()
             -- draw preview for the currently held script
