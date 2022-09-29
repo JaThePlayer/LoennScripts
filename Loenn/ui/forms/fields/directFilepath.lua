@@ -35,6 +35,7 @@ local function createSelectFileCallback(self, button)
     return function(filepath)
         updateButtonLabel(button, filepath)
         self.currentValue = filepath
+        self:notifyFieldChanged()
     end
 end
 

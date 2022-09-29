@@ -176,6 +176,8 @@ function contextWindow.createContextMenu(scriptHandler, callbackOnAccept, contex
     require("ui.windows").windows["scriptParameterWindow"].parent:addChild(window)
 
     form.prepareScrollableWindow(window)
+    --widgetUtils.addWindowCloseButton(window) needs callback
+
     return window
 end
 
