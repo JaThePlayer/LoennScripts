@@ -15,6 +15,7 @@ local viewportHandler = require("viewport_handler")
 local drawing = require("utils.drawing")
 local colors = require("consts.colors")
 local v = require("utils.version_parser")
+local selectionDrawUtils = modHandler.requireFromPlugin("library.selectionDrawUtils")
 
 local tool = {}
 
@@ -66,7 +67,13 @@ local function getTargetRooms()
     if tool.layer == "All Rooms" then
         return state.map.rooms
     else
-        return { state.getSelectedRoom() }
+        local selectedRoom = state.getSelectedRoom()
+        if selectedRoom then
+            return { selectedRoom }
+        end
+
+        -- todo: if multiple rooms are selected, return all selected rooms
+        return {}
     end
 end
 
@@ -80,6 +87,9 @@ function tool.execScript(script, args, ctx)
 
     if script.prerun then
         local room = state.getSelectedRoom()
+        if not room then
+            return false
+        end
         ctx.mouseRoomX, ctx.mouseRoomY = ctx.mouseMapX - room.x, ctx.mouseMapY - room.y
 
         local prerunSnapshot = script.prerun(args, tool.layer, ctx)
@@ -112,6 +122,8 @@ function tool.safeExecScript(script, args, contextTable)
         logging.warning(string.format("Failed to run script!"))
         logging.warning(debug.traceback(message))
         notifications.notify("Failed to run script!")
+    else
+        notifications.notify("Successfully ran script.")
     end
 end
 
@@ -157,7 +169,11 @@ function tool.setLayer(layer)
 end
 
 function tool.setMaterial(material)
-    if type(material) ~= "number" then
+    if type(material) == "string" then
+        tool.currentScript = tool.scripts[material]
+    end
+
+    if type(material) == "table" then
         tool.currentScript = material
     end
 end
@@ -231,20 +247,25 @@ function tool.load()
     tool.loadScripts()
 
     for key, value in pairs(scriptsLibrary.getCustomScripts()) do
+        local handler
         if utils.isFile(value) then
             local file = io.open(value)
             local l = file:read("*a")
             file:close()
-            local handler = assert(loadstring(l))()
-            handler.displayName = key
+            handler = assert(loadstring(l))()
 
-            finalizeScript(handler, key, value, "Custom")
         else
             -- just a string
-            local handler = assert(loadstring(value))()
+            handler = assert(loadstring(value))()
+        end
+
+        if handler then
             handler.displayName = key
             finalizeScript(handler, key, value, "Custom")
+        else
+            print(string.format("Didn't receive handler from script %s", key))
         end
+
     end
 end
 
@@ -253,27 +274,42 @@ local function drawPreviewRect(px, py)
     love.graphics.rectangle("line", px, py, .1, .1)
 end
 
+local function drawScriptLocationPreviews(room)
+    if not room then return end
+
+    local px, py = scriptsLibrary.safeGetRoomCoordinates(room)
+
+    drawing.callKeepOriginalColor(function()
+        -- draw preview for the currently held script
+        viewportHandler.drawRelativeTo(room.x, room.y, function()
+            love.graphics.setColor(colors.brushColor)
+            drawPreviewRect(px, py)
+        end)
+
+        -- draw previews for any active scripts
+        viewportHandler.drawRelativeTo(0, 0, function()
+            for i, pos in ipairs(activeScriptPositions) do
+                love.graphics.setColor(pos.color)
+                drawPreviewRect(pos.x, pos.y)
+            end
+        end)
+    end)
+end
+
 function tool.draw()
     local room = state.getSelectedRoom()
 
-    if room then
-        local px, py = scriptsLibrary.safeGetRoomCoordinates(room)
+    drawScriptLocationPreviews(room)
 
-        drawing.callKeepOriginalColor(function()
-            -- draw preview for the currently held script
-            viewportHandler.drawRelativeTo(room.x, room.y, function()
-                love.graphics.setColor(colors.brushColor)
-                drawPreviewRect(px, py)
-            end)
+    local current = tool.currentScript
+    if current and type(current) == "table" then
+        if current.useSelections then
+            selectionDrawUtils.drawSelections()
+        end
 
-            -- draw previews for any active scripts
-            viewportHandler.drawRelativeTo(0, 0, function()
-                for i, pos in ipairs(activeScriptPositions) do
-                    love.graphics.setColor(pos.color)
-                    drawPreviewRect(pos.x, pos.y)
-                end
-            end)
-        end)
+        if current.draw and type(current.draw) == "function" then
+            current.draw()
+        end
     end
 end
 

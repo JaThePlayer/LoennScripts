@@ -24,10 +24,11 @@ local script = {
                 end
 
                 return options
-            end)(),
+            end)(), -- todo: don't call this once 'options' accepts functions
             editable = true
         }
     },
+    fieldOrder = {"type", "allowPreserving", "replaceWith"}
 }
 
 local function getChangePropName(propName)
